@@ -1,0 +1,8 @@
+# 忽略所有 Node.js 的依赖库（最占空间的垃圾）
+node_modules/
+
+# 忽略打包后的文件或临时文件
+dist/
+build/
+.DS_Store
+*.log

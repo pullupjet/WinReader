@@ -1,0 +1,33 @@
+{
+  "name": "win-reader-pro",
+  "version": "1.0.0",
+  "description": "My Immersive English Reader",
+  "main": "main.js",
+  "author": "YourName",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.yourname.winreader",
+    "productName": "沉浸式阅读器",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": ["portable"] 
+    },
+    "files": [
+      "**/*",
+      "!dist/*"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "dependencies": {
+    "epubjs": "^0.3.93",
+    "jszip": "^3.10.1"
+  }
+}
