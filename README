@@ -2,13 +2,6 @@
 
 > **沉浸式英语阅读器** —— 专为通过原著提升英语水平而设计的桌面端生产力工具。
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-red.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Electron](https://img.shields.io/badge/Electron-v28.0.0-blue)](https://www.electronjs.org/)
-[![Version](https://img.shields.io/badge/version-0.2.0-orange)](https://github.com/YourUsername/win-reader-pro)
-[![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey)](https://github.com/YourUsername/win-reader-pro)
-
----
-
 ## ✨ 重构特性 (v0.2 Modular)
 
 * 🧩 **解耦架构**：彻底告别上帝文件，UI、业务、数据逻辑完全分离。
@@ -21,7 +14,6 @@
 
 ## 🏗️ 目录结构 (Architecture)
 
-```text
 src/
 ├── main/
 │   └── main.js           # 主进程：窗口管理与 IPC 通讯
@@ -38,20 +30,7 @@ src/
     │   └── app.js        # 控制器：组装模块与处理 UI 事件
     └── index.html        # HTML 骨架
 
-    🚀 快速开始
-开发模式
-克隆仓库
-
-安装依赖：npm install
-
-启动项目：npm start
-
-生产打包
-    npm run dist
-
-
-🤝 贡献与支持
-如果你喜欢这个项目，欢迎：
-    给个 Star 支持一下。
-    提交 Pull Request，特别是对于 ECDICT 词库支持的增强。  
-    如果你发现有公司白嫖，请务必开个 Issue 举报。
+🚀 快速开始
+    0 克隆仓库
+    1 安装依赖：npm install
+    2：启动项目：npm start
