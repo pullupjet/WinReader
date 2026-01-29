@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>沉浸式阅读器 (Modular)</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <span class="app-title">READER PRO</span>
+            <button id="menu-btn" class="icon-btn" title="设置">⚙️</button>
+        </div>
+
+        <div id="translation-area">
+            <div class="card">
+                <div class="card-title">Word Definition</div>
+                <div id="word-head">Start</div>
+                <div id="word-meaning" class="card-content">
+                    Ready to read.
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Context</div>
+                <div id="sentence-en" class="card-content"></div>
+                <div id="sentence-cn" class="card-content">...</div>
+            </div>
+        </div>
+
+        <div id="settings-drawer">
+            <button id="close-menu-btn" class="close-btn">×</button>
+            
+            <button id="open-btn" class="btn-primary">
+                <span>📂</span> 打开书籍
+            </button>
+
+            <div class="settings-group">
+                <span class="settings-label">Audio & Voice</span>
+                
+                <div class="control-row">
+                    <span>选择发音人 (Voice)</span>
+                    <select id="voice-select">
+                        <option>加载中...</option>
+                    </select>
+                </div>
+
+                <div class="control-row">
+                    <span>语速 (Speed): <span id="rate-val">1.0</span></span>
+                    <input type="range" id="voice-rate" min="0.5" max="2.0" step="0.1" value="1.0">
+                    <div style="font-size: 11px; color: #666; margin-top: 4px;">* 语速调节仅对本地语音有效，Google 语音为标准速度</div>
+                </div>
+
+                <button id="test-voice-btn" class="btn-outline">🔊 试听当前语音</button>
+            </div>
+
+            <div class="settings-group">
+                <span class="settings-label">Typography</span>
+                
+                <div class="control-row">
+                    <span>字号 (Size)</span>
+                    <input type="range" id="font-size" min="14" max="36" step="1" value="18">
+                </div>
+                
+                <div class="control-row">
+                    <span>行高 (Height)</span>
+                    <input type="range" id="line-height" min="1.2" max="2.2" step="0.1" value="1.6">
+                </div>
+
+                <div class="control-row">
+                    <span>字体 (Font)</span>
+                    <select id="font-family">
+                        <option value="Microsoft YaHei">微软雅黑</option>
+                        <option value="Segoe UI">Segoe UI</option>
+                        <option value="Arial">Arial</option>
+                        <option value="Georgia">Georgia</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="book-area">
+        <div id="viewer"></div>
+    </div>
+
+    <script>
+        require('./js/app.js');
+    </script>
+</body>
+</html>

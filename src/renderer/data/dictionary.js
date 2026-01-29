@@ -1,6 +1,3 @@
-// 这是一个模拟的本地词库
-// 在正式版中，你可以去 GitHub 下载 "ECDICT" 的 json 文件（约500MB），包含几百万词汇
-// 这里我们先放几个词测试效果
 const localDictionary = {
     "welcome": "adj. 受欢迎的；n. 欢迎；v. 欢迎",
     "windows": "n. 窗户；Windows操作系统",
