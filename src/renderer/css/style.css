@@ -82,9 +82,35 @@ body {
 }
 
 input[type=range] { width: 100%; accent-color: #007acc; cursor: pointer; }
+
+/* --- 深度定制下拉框，彻底解决白色按钮问题 --- */
 select {
-    background: #3e3e42; color: white; border: 1px solid #555; 
-    padding: 8px; border-radius: 4px; width: 100%; outline: none;
+    display: block !important;
+    background-color: #3e3e42 !important; /* 强制背景为深灰 */
+    color: #ffffff !important;            /* 强制文字为白色 */
+    border: 1px solid #555 !important;
+    padding: 8px 30px 8px 12px !important; /* 右侧留出空间给箭头 */
+    border-radius: 4px !important;
+    width: 100% !important;
+    outline: none !important;
+    cursor: pointer !important;
+    font-size: 14px !important;
+    
+    /* 关键：彻底禁用系统原生外观 */
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+
+    /* 添加自定义白色下拉箭头图标 */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+}
+
+/* 下拉后的选项列表 */
+select option {
+    background-color: #252526 !important;
+    color: #cccccc !important;
 }
 
 /* --- 卡片 --- */
