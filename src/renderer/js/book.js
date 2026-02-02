@@ -1,4 +1,4 @@
-// book.js - EPUB 渲染核心
+// book.js - EPUB 渲染核心 (增强版：加入章节功能)
 const ePubLib = require('epubjs');
 const ePub = ePubLib.default || ePubLib;
 const fs = require('fs');
@@ -13,7 +13,7 @@ class BookManager {
         this.onWordClick = onWordClickCallback;
     }
 
-    load(filePath) {
+    async load(filePath) {
         this.currentBookKey = "epub-pos-" + filePath;
         
         // 读取文件 buffer
@@ -38,19 +38,25 @@ class BookManager {
 
         this.attachEvents();
         this.restorePosition();
+
+        // 等待书籍加载完成并返回目录数据
+        await this.book.ready;
+        return await this.book.loaded.navigation;
+    }
+
+    // 跳转到指定章节
+    jumpTo(href) {
+        if (this.rendition) {
+            this.rendition.display(href);
+        }
     }
 
     attachEvents() {
-        // 渲染开始时应用样式
         this.rendition.hooks.render.register(() => this.applyTheme());
-
-        // 渲染内容时处理单词包裹
         this.rendition.hooks.content.register(contents => {
             this.applyTheme(); 
             this.wrapWords(contents.document.body, contents);
         });
-
-        // 记录进度
         this.rendition.on('relocated', (location) => {
             localStorage.setItem(this.currentBookKey, location.start.cfi);
         });
@@ -83,19 +89,14 @@ class BookManager {
         });
     }
 
-    // 递归包裹单词
     wrapWords(element, contents) {
         const nodes = Array.from(element.childNodes);
         nodes.forEach(node => {
-            if (node.nodeType === 3) { // 文本节点
-                // --- 修复点在这里：之前写成了 constHbtext ---
+            if (node.nodeType === 3) {
                 const text = node.nodeValue;
                 if (!text.trim()) return;
-                
-                // 按单词分割（保留分隔符）
                 const tokens = text.split(/([a-zA-Z\u00C0-\u00FF]+)/g);
                 const fragment = document.createDocumentFragment();
-                
                 tokens.forEach(token => {
                     if (/^[a-zA-Z\u00C0-\u00FF]+$/.test(token)) {
                         const span = document.createElement('span');
@@ -103,15 +104,10 @@ class BookManager {
                         span.innerText = token;
                         span.onclick = (e) => {
                             e.stopPropagation();
-                            // 清除其他高亮
                             contents.document.querySelectorAll('.click-word.active')
                                 .forEach(el => el.classList.remove('active'));
                             span.classList.add('active');
-                            
-                            // 获取上下文句子
                             const sentence = this.extractSentence(span, token);
-                            
-                            // 触发外部回调
                             if (this.onWordClick) this.onWordClick(token, sentence);
                         };
                         fragment.appendChild(span);
@@ -126,16 +122,13 @@ class BookManager {
         });
     }
 
-    // 提取当前单词所在的整句
     extractSentence(spanElement, rawWord) {
         let parentBlock = spanElement.parentElement;
-        // 向上查找直到找到块级元素
         while (parentBlock && window.getComputedStyle(parentBlock).display === 'inline') {
             parentBlock = parentBlock.parentElement;
         }
         if (parentBlock) {
             const fullText = parentBlock.innerText;
-            // 简单的正则分句
             const sentences = fullText.match(/[^.!?,;:\n\r]+[.!?,\n\r;:]+|$/g) || [fullText];
             return sentences.find(s => s.includes(rawWord)) || fullText;
         }

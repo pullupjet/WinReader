@@ -1,4 +1,4 @@
-// app.js - 前端控制器
+// app.js - 前端控制器 (增强版：加入章节功能)
 const { ipcRenderer } = require('electron');
 const fs = require('fs');
 const JSZip = require('jszip');
@@ -23,6 +23,8 @@ const ui = {
     fontFamily: document.getElementById('font-family'),
     openBtn: document.getElementById('open-btn'),
     testVoiceBtn: document.getElementById('test-voice-btn'),
+    // 新增：章节选择下拉框
+    tocSelect: document.getElementById('toc-select'),
     cards: {
         wordHead: document.getElementById('word-head'),
         wordMeaning: document.getElementById('word-meaning'),
@@ -32,7 +34,6 @@ const ui = {
 };
 
 // --- 初始化 Book Manager ---
-// 这是核心回调：当书里的单词被点击时发生什么
 const bookManager = new BookManager("viewer", (word, sentence) => {
     handleWordClick(word, sentence);
 });
@@ -42,11 +43,7 @@ const bookManager = new BookManager("viewer", (word, sentence) => {
 // 1. 单词点击处理
 async function handleWordClick(rawWord, sentence) {
     const word = rawWord.toLowerCase();
-    
-    // 播放声音
     audioManager.speak(rawWord);
-
-    // 更新单词卡片
     ui.cards.wordHead.innerText = rawWord;
     const localDef = translator.lookupLocal(word);
     
@@ -62,7 +59,6 @@ async function handleWordClick(rawWord, sentence) {
         }
     }
 
-    // 更新句子卡片
     ui.cards.sentenceEn.innerText = sentence.trim();
     ui.cards.sentenceCn.innerText = "Translating...";
     try {
@@ -73,8 +69,36 @@ async function handleWordClick(rawWord, sentence) {
     }
 }
 
+// 新增：渲染目录逻辑
+function renderTOC(nav) {
+    if (!ui.tocSelect) return;
+    ui.tocSelect.innerHTML = ""; // 清空
+    
+    // 添加默认提示项
+    const defaultOpt = document.createElement('option');
+    defaultOpt.innerText = "--- 选择章节 ---";
+    ui.tocSelect.appendChild(defaultOpt);
+
+    // 递归处理目录（防止有些书有子目录）
+    const addItems = (items, level = 0) => {
+        items.forEach(chapter => {
+            const option = document.createElement('option');
+            option.value = chapter.href;
+            // 根据层级加缩进，让目录更好看
+            option.innerText = "　".repeat(level) + chapter.label.trim();
+            ui.tocSelect.appendChild(option);
+            
+            if (chapter.subitems && chapter.subitems.length > 0) {
+                addItems(chapter.subitems, level + 1);
+            }
+        });
+    };
+    
+    addItems(nav.toc);
+}
+
 // 2. 初始化 UI 状态
-function initUI() {
+async function initUI() {
     const s = settings.getAll();
     ui.fontSize.value = s.fontSize;
     ui.lineHeight.value = s.lineHeight;
@@ -82,10 +106,15 @@ function initUI() {
     ui.rateInput.value = s.voiceRate;
     ui.rateVal.innerText = s.voiceRate;
     
-    // 加载书籍
+    // 自动加载上次的书籍
     const lastBookPath = localStorage.getItem('lastOpenBookPath');
     if (lastBookPath && fs.existsSync(lastBookPath)) {
-        bookManager.load(lastBookPath);
+        try {
+            const nav = await bookManager.load(lastBookPath);
+            renderTOC(nav);
+        } catch (e) {
+            console.error("加载旧书籍失败:", e);
+        }
     }
 }
 
@@ -93,16 +122,11 @@ function initUI() {
 function loadVoiceList() {
     const voices = audioManager.getSystemVoices();
     ui.voiceSelect.innerHTML = "";
-
-    // 添加 Google 选项
     const googleOption = document.createElement('option');
-    googleOption.textContent = "🌐 Google Online (联网标准音)";
+    googleOption.textContent = "🌐 Google Online";
     googleOption.value = "Google Online";
-    googleOption.style.fontWeight = "bold";
-    googleOption.style.color = "#4ec9b0";
     ui.voiceSelect.appendChild(googleOption);
 
-    // 添加本地选项
     const enVoices = voices.filter(v => v.lang.includes('en') || v.lang.includes('US') || v.lang.includes('UK'));
     (enVoices.length ? enVoices : voices).forEach(voice => {
         const option = document.createElement('option');
@@ -111,36 +135,37 @@ function loadVoiceList() {
         ui.voiceSelect.appendChild(option);
     });
 
-    // 恢复选中状态
     const savedName = settings.get('voiceName');
-    if (savedName) {
-        if (savedName === "Google Online") {
-            ui.voiceSelect.value = "Google Online";
-        } else {
-            const exists = Array.from(ui.voiceSelect.options).some(o => o.value === savedName);
-            if (exists) ui.voiceSelect.value = savedName;
-        }
-    }
+    if (savedName) ui.voiceSelect.value = savedName;
 }
 
 // --- 事件绑定 ---
 
-// 语音加载事件
 if (speechSynthesis.onvoiceschanged !== undefined) {
     speechSynthesis.onvoiceschanged = loadVoiceList;
 }
-setTimeout(loadVoiceList, 500); // 兜底
+setTimeout(loadVoiceList, 500);
 
-// 菜单开关
 ui.menuBtn.onclick = () => ui.drawer.classList.add('active');
 ui.closeMenuBtn.onclick = () => ui.drawer.classList.remove('active');
 
-// 打开书籍 IPC
+// 章节跳转绑定
+ui.tocSelect.onchange = (e) => {
+    if (e.target.value) {
+        bookManager.jumpTo(e.target.value);
+        // 跳转后自动关闭菜单（可选，提升体验）
+        // ui.drawer.classList.remove('active');
+    }
+};
+
+// 打开书籍
 ui.openBtn.onclick = () => ipcRenderer.send('open-file-dialog');
-ipcRenderer.on('selected-file', (event, path) => {
+ipcRenderer.on('selected-file', async (event, path) => {
     ui.drawer.classList.remove('active');
     localStorage.setItem('lastOpenBookPath', path);
-    bookManager.load(path);
+    // 加载并渲染目录
+    const nav = await bookManager.load(path);
+    renderTOC(nav);
 });
 
 // 设置变更
@@ -155,11 +180,8 @@ ui.rateInput.oninput = (e) => {
     settings.set('voiceRate', val);
 };
 
-ui.testVoiceBtn.onclick = () => {
-    audioManager.speak("This is a test of the audio quality.");
-};
+ui.testVoiceBtn.onclick = () => audioManager.speak("Testing audio quality.");
 
-// 样式变更
 const updateStyle = () => {
     settings.set('fontSize', ui.fontSize.value);
     settings.set('lineHeight', ui.lineHeight.value);
@@ -171,5 +193,4 @@ ui.fontSize.oninput = updateStyle;
 ui.lineHeight.oninput = updateStyle;
 ui.fontFamily.onchange = updateStyle;
 
-// 启动
 initUI();
