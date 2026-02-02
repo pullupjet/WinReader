@@ -1,10 +1,19 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const path = require('path')
+// 1. 引入刚才写的模块
+const WindowStateManager = require('./windowState'); 
 
 function createWindow () {
+  // 2. 初始化状态管理器
+  const stateManager = new WindowStateManager();
+  const state = stateManager.getState();
+
+  // 3. 使用加载的状态创建窗口
   const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: state.width,
+    height: state.height,
+    x: state.x,
+    y: state.y,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -12,7 +21,9 @@ function createWindow () {
     }
   })
 
-  // 修改：指向 src/renderer/index.html
+  // 4. 让管理器接管这个窗口（自动绑定 close 事件进行保存）
+  stateManager.manage(mainWindow);
+
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
 
   ipcMain.on('open-file-dialog', (event) => {
