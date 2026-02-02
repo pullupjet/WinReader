@@ -1,4 +1,4 @@
-// book.js - EPUB 渲染核心 (终极稳定渲染版)
+// book.js - 键盘与右键翻页版
 const ePubLib = require('epubjs');
 const ePub = ePubLib.default || ePubLib;
 const fs = require('fs');
@@ -11,9 +11,6 @@ class BookManager {
         this.rendition = null;
         this.currentBookKey = "";
         this.onWordClick = onWordClickCallback;
-        
-        this.targetCfi = null;       // 记录预期跳转的目标
-        this.isLocking = false;      // 锁定标记，防止分词期间坐标污染
     }
 
     async load(filePath) {
@@ -26,19 +23,18 @@ class BookManager {
         
         const container = document.getElementById(this.viewerId);
         container.innerHTML = ''; 
-        container.style.opacity = "0"; // 初始隐藏
-
+        
+        // 翻页模式配置
         this.rendition = this.book.renderTo(this.viewerId, {
             width: "100%",
             height: "100%",
-            flow: "scrolled-doc",
-            manager: "continuous"
+            allowScriptedContent: true
         });
 
         this.attachEvents();
         
-        this.targetCfi = localStorage.getItem(this.currentBookKey);
-        await this.rendition.display(this.targetCfi || undefined);
+        const targetCfi = localStorage.getItem(this.currentBookKey);
+        await this.rendition.display(targetCfi || undefined);
 
         await this.book.ready;
         return await this.book.loaded.navigation;
@@ -46,56 +42,65 @@ class BookManager {
 
     jumpTo(href) {
         if (this.rendition) {
-            this.isLocking = true;
-            this.targetCfi = href;
-            
-            const container = document.getElementById(this.viewerId);
-            container.style.transition = "none";
-            container.style.opacity = "0";
-            
             this.rendition.display(href);
         }
     }
 
     attachEvents() {
-        this.rendition.hooks.render.register(() => this.applyTheme());
+        // --- 1. 键盘事件处理 (→ ↓ 下一页, ← ↑ 上一页) ---
+        const handleKey = (e) => {
+            // 忽略在输入框内的按键
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
+            switch (e.key) {
+                case "ArrowRight":
+                case "ArrowDown":
+                    this.rendition.next();
+                    break;
+                case "ArrowLeft":
+                case "ArrowUp":
+                    this.rendition.prev();
+                    break;
+            }
+        };
+
+        // 监听主文档的按键（当焦点在外部时）
+        document.addEventListener('keyup', handleKey);
+        
+        // 监听 epub 内部的按键（当焦点在书本内容时）
+        this.rendition.on('keyup', handleKey);
+
+
+        // --- 2. 鼠标右键处理 (下一页) ---
+        // 放在 content hook 里，确保能捕获 iframe 内部的点击
         this.rendition.hooks.content.register(contents => {
-            this.isLocking = true;
             const doc = contents.document;
-            
+            const body = doc.body;
+
+            // 样式与分词 (保持之前的稳定逻辑)
             this.applyTheme(); 
-            
-            // 获取当前位置用于校准
-            const cfiToRestore = this.targetCfi || this.rendition.currentLocation().start.cfi;
+            this.wrapWords(body, contents);
 
-            // 分词处理
-            this.wrapWords(doc.body, contents);
-
-            // 核心定位校准：等待 DOM 稳定后强制再次 display
-            setTimeout(async () => {
-                if (cfiToRestore) {
-                    await this.rendition.display(cfiToRestore);
-                }
-
-                // 校准完成后显示
-                requestAnimationFrame(() => {
-                    const container = document.getElementById(this.viewerId);
-                    container.style.transition = "opacity 0.2s ease-in";
-                    container.style.opacity = "1";
-                    
-                    setTimeout(() => {
-                        this.isLocking = false;
-                        this.targetCfi = null;
-                    }, 150);
-                });
-            }, 100); 
+            // 监听 iframe 内部的右键点击
+            doc.addEventListener('contextmenu', (e) => {
+                e.preventDefault(); // 阻止浏览器默认的右键菜单
+                this.rendition.next(); // 触发下一页
+            });
         });
 
+        // 监听主容器的右键点击（防止点击边缘空白处无反应）
+        const container = document.getElementById(this.viewerId);
+        container.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.rendition.next();
+        });
+
+
+        // --- 3. 渲染样式与进度保存 ---
+        this.rendition.hooks.render.register(() => this.applyTheme());
+
         this.rendition.on('relocated', (location) => {
-            if (!this.isLocking) {
-                localStorage.setItem(this.currentBookKey, location.start.cfi);
-            }
+            localStorage.setItem(this.currentBookKey, location.start.cfi);
         });
     }
 
@@ -109,22 +114,27 @@ class BookManager {
                 "line-height": `${s.lineHeight} !important`,
                 "font-family": `${s.fontFamily} !important`,
                 "color": "#333 !important",
-                "text-align": "justify !important",
-                "word-spacing": "normal !important",
-                "letter-spacing": "normal !important"
+                "text-align": "justify !important"
             },
-            "div": {
-                "font-size": `${s.fontSize}px !important`,
-                "line-height": `${s.lineHeight} !important`
-            },
+            // 保持 inline 和 0 padding，这是防止排版错乱的关键
             "span.click-word": { 
                 "cursor": "pointer", 
-                "border-radius": "3px",
-                "display": "inline !important", // 必须设为 inline 才能保持两端对齐正常
-                "padding": "0 1px"
+                "display": "inline", 
+                "padding": "0", 
+                "margin": "0",
+                "background-color": "transparent",
+                "position": "relative",
+                "z-index": "1"
             },
-            "span.click-word:hover": { "background-color": "rgba(33, 150, 243, 0.2)" },
-            "span.click-word.active": { "background-color": "#007acc", "color": "white" }
+            "span.click-word:hover": { 
+                "background-color": "rgba(33, 150, 243, 0.2)",
+                "outline": "2px solid rgba(33, 150, 243, 0.1)"
+            },
+            "span.click-word.active": { 
+                "background-color": "#007acc", 
+                "color": "white",
+                "box-shadow": "0 0 0 1px #007acc"
+            }
         });
     }
 
@@ -135,15 +145,16 @@ class BookManager {
                 const text = node.nodeValue;
                 if (!text.trim()) return;
                 
-                // 改进正则：保留空格和标点
                 const tokens = text.split(/([a-zA-Z\u00C0-\u00FF]+)/g);
                 const fragment = document.createDocumentFragment();
                 
                 tokens.forEach(token => {
+                    if (token === "") return;
                     if (/^[a-zA-Z\u00C0-\u00FF]+$/.test(token)) {
                         const span = document.createElement('span');
                         span.className = 'click-word';
                         span.innerText = token;
+                        // 左键点击单词逻辑 (保持不变)
                         span.onclick = (e) => {
                             e.stopPropagation();
                             contents.document.querySelectorAll('.click-word.active')
@@ -154,14 +165,14 @@ class BookManager {
                         };
                         fragment.appendChild(span);
                     } else {
-                        // 非单词部分（空格、标点）保持原样
                         fragment.appendChild(document.createTextNode(token));
                     }
                 });
                 node.parentNode.replaceChild(fragment, node);
             } else if (node.nodeType === 1) { 
-                // 排除已经被处理过的 span，防止死循环
-                if (!node.classList.contains('click-word')) {
+                if (!node.classList.contains('click-word') && 
+                    node.tagName !== 'SCRIPT' && 
+                    node.tagName !== 'STYLE') {
                     this.wrapWords(node, contents); 
                 }
             }
